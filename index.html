@@ -342,6 +342,17 @@ button{font-family:inherit;}
 .form-actions{display:flex; gap:10px; margin-top:6px;}
 .form-actions .btn{flex:1;}
 
+.checkbox-row{
+  display:flex; align-items:flex-start; gap:10px;
+  padding:12px 13px; margin:2px 0 18px;
+  background:var(--ink-3); border:1px solid var(--line); border-radius:11px;
+  cursor:pointer;
+}
+.checkbox-row input[type=checkbox]{
+  width:19px; height:19px; margin:0; flex-shrink:0; accent-color:var(--brass);
+}
+.checkbox-row span{font-size:12.5px; color:var(--text-dim); line-height:1.4;}
+
 .goal-ring-wrap{display:flex; align-items:center; gap:16px; margin-bottom:6px;}
 .goal-ring-text{flex:1;}
 .goal-ring-text .amt{font-family:var(--mono); font-size:20px; font-weight:700;}
@@ -516,13 +527,19 @@ function saveState(){
 ============================================================ */
 function fmt(n, opts={}){
   const v = Math.abs(n);
-  const s = v.toLocaleString('en-US', {minimumFractionDigits:2, maximumFractionDigits:2});
-  return '$' + s;
+  const s = v.toLocaleString('nb-NO', {minimumFractionDigits:2, maximumFractionDigits:2});
+  return s + ' kr';
 }
 function fmtSigned(n){
   if(n > 0.004) return '+' + fmt(n);
   if(n < -0.004) return '−' + fmt(Math.abs(n));
   return fmt(0);
+}
+/* Accepts "1234,56" or "1234.56" (comma or period as decimal separator) */
+function parseNum(str){
+  if(str===null || str===undefined) return NaN;
+  const cleaned = String(str).trim().replace(/\s/g,'').replace(',', '.');
+  return parseFloat(cleaned);
 }
 function todayISO(){
   const d = new Date();
@@ -545,6 +562,7 @@ const ACCOUNT_TYPES = {
 function accountBalance(acc){
   let bal = acc.startingBalance || 0;
   state.transactions.forEach(t=>{
+    if(t.excludeFromBalance) return;
     if(t.type==='income' && t.accountId===acc.id) bal += t.amount;
     else if(t.type==='expense' && t.accountId===acc.id) bal -= t.amount;
     else if(t.type==='transfer'){
@@ -627,7 +645,7 @@ function renderHome(){
   document.getElementById('topbarSub').textContent = now.toLocaleDateString('en-US',{weekday:'short', month:'short', day:'numeric'});
 
   const nw = netWorth();
-  document.getElementById('netWorthDisplay').innerHTML = (nw<0?'−':'') + '$' + Math.floor(Math.abs(nw)).toLocaleString('en-US') + '<span class="cents">.'+String(Math.round((Math.abs(nw)%1)*100)).padStart(2,'0')+'</span>';
+  document.getElementById('netWorthDisplay').innerHTML = (nw<0?'−':'') + Math.floor(Math.abs(nw)).toLocaleString('nb-NO') + '<span class="cents">,'+String(Math.round((Math.abs(nw)%1)*100)).padStart(2,'0')+' kr</span>';
   document.getElementById('netWorthCaption').textContent = state.accounts.length ? `Across ${state.accounts.length} account${state.accounts.length>1?'s':''}` : 'Add an account to get started';
 
   const monthTx = state.transactions.filter(t=>{
@@ -701,7 +719,8 @@ function txRowHtml(t){
   const icon = t.type==='transfer' ? '↔️' : (c?c.icon:'🧾');
   const color = t.type==='transfer' ? '#3a4150' : (c?c.color+'33':'#3a4150');
   const name = t.type==='transfer' ? `Transfer to ${toAcc?toAcc.name:'—'}` : (c?c.name:'Uncategorized');
-  const sub = (t.note ? escapeHtml(t.note)+' · ' : '') + (acc?acc.name:'') + ' · ' + new Date(t.date+'T00:00:00').toLocaleDateString('en-US',{month:'short',day:'numeric'});
+  const backfillTag = t.excludeFromBalance ? ' · <span style="color:var(--brass);">history only</span>' : '';
+  const sub = (t.note ? escapeHtml(t.note)+' · ' : '') + (acc?acc.name:'') + ' · ' + new Date(t.date+'T00:00:00').toLocaleDateString('en-US',{month:'short',day:'numeric'}) + backfillTag;
   const amtClass = t.type==='income' ? 'pos' : (t.type==='expense' ? 'neg' : 'neutral');
   const sign = t.type==='income' ? '+' : (t.type==='expense' ? '−' : '');
   return `<div class="row" onclick="openTxDetail('${t.id}')">
@@ -758,11 +777,11 @@ function openAccountForm(existing){
       <div class="field"><label>Type</label><select id="fAccType" onchange="toggleGoalFields()">${typeOptions}</select></div>
       <div class="field"><label>Color</label><input type="color" id="fAccColor" value="${a.color}"></div>
     </div>
-    <div class="field"><label>${isEdit?'Adjust balance (starting balance)':'Starting balance'}</label><input type="number" step="0.01" id="fAccBal" placeholder="0.00" value="${a.startingBalance??''}"></div>
+    <div class="field"><label>${isEdit?'Adjust balance (starting balance)':'Starting balance'}</label><input type="text" inputmode="decimal" id="fAccBal" placeholder="0,00" value="${a.startingBalance!=null?String(a.startingBalance).replace('.',','):''}"></div>
     <div id="goalFieldsWrap" style="display:${a.type==='savings'?'block':'none'}">
       <div class="divider"></div>
       <div class="field"><label>Savings goal name (optional)</label><input type="text" id="fGoalName" placeholder="e.g. Emergency Fund" value="${escapeHtml((a.goal&&a.goal.name)||'')}"></div>
-      <div class="field"><label>Target amount</label><input type="number" step="0.01" id="fGoalTarget" placeholder="0.00" value="${(a.goal&&a.goal.target)||''}"></div>
+      <div class="field"><label>Target amount</label><input type="text" inputmode="decimal" id="fGoalTarget" placeholder="0,00" value="${(a.goal&&a.goal.target)?String(a.goal.target).replace('.',','):''}"></div>
       <div class="field"><label>Target date (optional)</label><input type="date" id="fGoalDate" value="${(a.goal&&a.goal.date)||''}"></div>
     </div>
     <div class="form-actions">
@@ -780,10 +799,10 @@ function saveAccount(id){
   if(!name){ alert('Please enter an account name.'); return; }
   const type = document.getElementById('fAccType').value;
   const color = document.getElementById('fAccColor').value;
-  const bal = parseFloat(document.getElementById('fAccBal').value)||0;
+  const bal = parseNum(document.getElementById('fAccBal').value)||0;
   let goal = null;
   if(type==='savings'){
-    const target = parseFloat(document.getElementById('fGoalTarget').value)||0;
+    const target = parseNum(document.getElementById('fGoalTarget').value)||0;
     if(target>0){
       goal = { name: document.getElementById('fGoalName').value.trim(), target, date: document.getElementById('fGoalDate').value||null };
     }
@@ -900,8 +919,8 @@ function renderTxFormSheet(t, isEdit){
     </div>
     <div class="amount-field">
       <span class="sign" id="txSign" style="color:${t.type==='income'?'var(--moss)':t.type==='expense'?'var(--rust)':'var(--text)'}">${t.type==='income'?'+':t.type==='expense'?'−':'↔'}</span>
-      <span style="font-family:var(--mono); font-size:28px; color:var(--text-faint);">$</span>
-      <input type="number" step="0.01" id="fTxAmt" placeholder="0.00" value="${t.amount??''}" inputmode="decimal">
+      <input type="text" id="fTxAmt" placeholder="0,00" value="${t.amount!=null?String(t.amount).replace('.',','):''}" inputmode="decimal">
+      <span style="font-family:var(--mono); font-size:20px; color:var(--text-faint);">kr</span>
     </div>
     <div class="field"><label>Account</label><select id="fTxAccount">${accOptions}</select></div>
     <div class="field" id="txCatField" style="display:${t.type==='transfer'?'none':'block'}">
@@ -916,6 +935,10 @@ function renderTxFormSheet(t, isEdit){
       <div class="field"><label>Date</label><input type="date" id="fTxDate" value="${t.date}"></div>
     </div>
     <div class="field"><label>Note (optional)</label><input type="text" id="fTxNote" placeholder="What was this for?" value="${escapeHtml(t.note||'')}"></div>
+    <label class="checkbox-row">
+      <input type="checkbox" id="fTxExclude" ${t.excludeFromBalance?'checked':''}>
+      <span>Backfilling the past — don't apply this to my current balance</span>
+    </label>
     <div class="form-actions">
       ${isEdit? `<button class="btn btn-danger" onclick="deleteTx('${t.id}')">Delete</button>` : ''}
       <button class="btn btn-brass" onclick="saveTx(${isEdit?`'${t.id}'`:'null'})">${isEdit?'Save Changes':'Add Transaction'}</button>
@@ -937,12 +960,13 @@ function setTxType(type){
 }
 function saveTx(id){
   const type = window._txDraftType;
-  const amount = parseFloat(document.getElementById('fTxAmt').value);
-  if(!amount || amount<=0){ alert('Please enter an amount.'); return; }
+  const amount = parseNum(document.getElementById('fTxAmt').value);
+  if(!amount || isNaN(amount) || amount<=0){ alert('Please enter an amount.'); return; }
   const accountId = document.getElementById('fTxAccount').value;
   const date = document.getElementById('fTxDate').value || todayISO();
   const note = document.getElementById('fTxNote').value.trim();
-  let payload = { type, amount, accountId, date, note };
+  const excludeFromBalance = document.getElementById('fTxExclude').checked;
+  let payload = { type, amount, accountId, date, note, excludeFromBalance };
   if(type==='transfer'){
     const toAccountId = document.getElementById('fTxToAccount').value;
     if(toAccountId===accountId){ alert('Choose two different accounts for a transfer.'); return; }
@@ -1134,7 +1158,7 @@ function openCategoryForm(existing){
     </div>
     <div class="field"><label>Color</label><input type="color" id="fCatColor" value="${c.color}"></div>
     <div class="field" id="catBudgetField" style="display:${c.type==='expense'?'block':'none'}">
-      <label>Monthly budget (optional)</label><input type="number" step="0.01" id="fCatBudget" placeholder="0.00" value="${c.budget||''}">
+      <label>Monthly budget (optional)</label><input type="text" inputmode="decimal" id="fCatBudget" placeholder="0,00" value="${c.budget?String(c.budget).replace('.',','):''}">
     </div>
     <div class="form-actions">
       ${isEdit? `<button class="btn btn-danger" onclick="deleteCategory('${c.id}')">Delete</button>` : ''}
@@ -1158,7 +1182,7 @@ function saveCategory(id){
   const type = window._catDraft.type;
   const icon = window._catDraft.icon || '🧾';
   const color = document.getElementById('fCatColor').value;
-  const budgetVal = type==='expense' ? (parseFloat(document.getElementById('fCatBudget').value)||null) : null;
+  const budgetVal = type==='expense' ? (parseNum(document.getElementById('fCatBudget').value)||null) : null;
   if(id){
     const c = catById(id);
     Object.assign(c, {name, type, icon, color, budget: budgetVal});
@@ -1194,5 +1218,3 @@ document.addEventListener('touchmove', function(e){
 </script>
 </body>
 </html>
-
-
