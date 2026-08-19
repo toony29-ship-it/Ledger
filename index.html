@@ -174,6 +174,14 @@ button{font-family:inherit;}
 .btn:active{opacity:0.7;}
 
 .chip-row{display:flex; gap:8px; flex-wrap:wrap;}
+.quick-add-row{display:flex; gap:8px; overflow-x:auto; padding:2px 0 4px; -webkit-overflow-scrolling:touch;}
+.quick-add-chip{
+  flex-shrink:0; display:flex; flex-direction:column; align-items:center; gap:5px;
+  background:var(--ink-2); border:1px solid var(--line); border-radius:14px;
+  padding:12px 14px; cursor:pointer; min-width:64px;
+}
+.quick-add-chip .qi{font-size:20px;}
+.quick-add-chip .qn{font-size:10px; color:var(--text-dim); font-weight:600; white-space:nowrap;}
 .chip{
   padding:7px 12px; border-radius:99px; font-size:12.5px; font-weight:600;
   background:var(--ink-3); color:var(--text-dim); border:1px solid var(--line); cursor:pointer;
@@ -242,6 +250,25 @@ button{font-family:inherit;}
 .legend-row{display:flex; align-items:center; gap:9px; padding:7px 0; font-size:13px; border-bottom:1px solid var(--line);}
 .legend-row:last-child{border-bottom:none;}
 .legend-dot{width:9px; height:9px; border-radius:50%; flex-shrink:0;}
+.legend-dot-picker{
+  width:16px; height:16px; flex-shrink:0; padding:0; border:none; border-radius:50%;
+  -webkit-appearance:none; appearance:none; background:none; cursor:pointer;
+}
+.legend-dot-picker::-webkit-color-swatch-wrapper{padding:0; border-radius:50%;}
+.legend-dot-picker::-webkit-color-swatch{border:none; border-radius:50%;}
+.legend-toggle{
+  text-align:center; padding:10px 0 2px; font-size:12px; font-weight:600; color:var(--brass); cursor:pointer;
+}
+.flow-legend{display:flex; gap:16px; margin-bottom:14px; font-size:11.5px; color:var(--text-dim);}
+.flow-legend span{display:flex; align-items:center; gap:6px;}
+.flow-legend .dot{width:8px; height:8px; border-radius:50%;}
+.flow-chart{display:flex; align-items:flex-end; gap:8px; height:110px; padding-top:6px;}
+.flow-col{flex:1; display:flex; flex-direction:column; align-items:center; gap:6px; min-width:0;}
+.flow-bars{display:flex; align-items:flex-end; gap:3px; height:88px;}
+.flow-bar{width:11px; border-radius:3px 3px 0 0; min-height:2px;}
+.flow-bar.inc{background:var(--moss);}
+.flow-bar.exp{background:var(--rust);}
+.flow-col .fm-label{font-size:10px; color:var(--text-faint); font-family:var(--mono);}
 .legend-row .lname{flex:1; min-width:0; color:var(--text); overflow:hidden; text-overflow:ellipsis; white-space:nowrap;}
 .legend-row .lval{font-family:var(--mono); color:var(--text-dim); font-size:12.5px; flex-shrink:0;}
 .legend-row .lpct{font-family:var(--mono); color:var(--text-faint); font-size:11px; width:36px; text-align:right; flex-shrink:0;}
@@ -353,6 +380,9 @@ button{font-family:inherit;}
   font-family:var(--mono); font-size:34px; font-weight:700;
 }
 .emoji-grid{display:grid; grid-template-columns:repeat(8,1fr); gap:6px; margin-top:8px;}
+.emoji-grid-scroll{max-height:168px; overflow-y:auto; padding-right:2px;}
+.inline-cat-creator{background:var(--ink-3); border:1px solid var(--brass-dim); border-radius:12px; padding:13px; margin:-6px 0 18px;}
+.inline-cat-creator .field:last-of-type{margin-bottom:10px;}
 .emoji-grid button{
   aspect-ratio:1; border-radius:9px; background:var(--ink-3); border:1px solid var(--line);
   font-size:17px; cursor:pointer;
@@ -406,14 +436,12 @@ button{font-family:inherit;}
       <div class="caption" id="netWorthCaption">Across all accounts</div>
     </div>
 
+    <div class="card" id="trendCard" style="margin-top:12px;"></div>
+
     <div class="stat-row" style="margin-top:14px;">
       <div class="stat-card">
         <div class="label">Income</div>
         <div class="value pos" id="homeIncome">$0</div>
-      </div>
-      <div class="stat-card">
-        <div class="label">Spent</div>
-        <div class="value neg" id="homeExpense">$0</div>
       </div>
       <div class="stat-card">
         <div class="label">Net</div>
@@ -421,8 +449,7 @@ button{font-family:inherit;}
       </div>
     </div>
 
-    <div class="section-title">This month <span class="link" id="homeMonthLabel"></span></div>
-    <div class="card" id="homeDonutCard"></div>
+    <div id="quickAddSection"></div>
 
     <div id="homeGoalsSection"></div>
 
@@ -438,7 +465,7 @@ button{font-family:inherit;}
 
   <!-- ============ TRANSACTIONS ============ -->
   <div class="view" id="view-transactions">
-    <div class="section-title">Transactions</div>
+    <div class="section-title">Transactions <span class="link" onclick="openRecurringList()">🔁 Recurring</span></div>
     <div class="field" style="margin-bottom:10px;">
       <input type="text" id="txSearch" placeholder="Search note, category, account…" oninput="renderTransactionsView()">
     </div>
@@ -477,6 +504,9 @@ button{font-family:inherit;}
     </div>
     <div class="card" id="repDonutCard" style="margin-top:14px;"></div>
 
+    <div class="section-title">Cash flow · Last 6 months</div>
+    <div class="card" id="flowChartCard"></div>
+
     <div class="section-title">Budgets <span class="link" onclick="openCategoryForm()">+ Category</span></div>
     <div class="card" id="repBudgets"></div>
 
@@ -511,6 +541,18 @@ button{font-family:inherit;}
 ============================================================ */
 const STORAGE_KEY = 'ledgerAppData_v1';
 const PALETTE = ['#C9A24B','#6FA287','#C1583B','#7C93C9','#B37FB0','#4FA3A3','#D2A15C','#8FA35E','#B0678E','#5C8DBC','#C98A4B','#7A9E9F','#9C7BC9','#C96F6F','#6FA6C9','#A38F5C'];
+const CATEGORY_EMOJIS = [
+  '🛒','🍔','🍕','🍣','🍜','🌮','☕','🍺','🍷','🥗',
+  '🚗','⛽','🚕','🚌','🚆','🚲','✈️','🅿️','🛞','🛴',
+  '🏠','🔑','🛋️','🧹','🔧','💡','🔥','💧','📶','🧺',
+  '🛡️','🏥','💊','🦷','👓','🧠','🧴','💆','🧘','🏋️',
+  '🎬','🎮','🎵','📺','🎟️','🎨','📷','⚽','🏕️','🎣',
+  '📚','🎓','✏️','🖥️','📱','💻','🖨️','🧑‍💻','🔬','🧪',
+  '👕','👗','👟','💍','🧢','🛍️','🧵','💄','👜','🕶️',
+  '🐾','🐶','🐱','👶','🧸','🍼','👴','👵','🎁','🎉',
+  '💼','💰','📈','📉','💳','🏦','🧾','↩️','🪙','💸',
+  '🎗️','🕯️','⛪','🗳️','🚬','🎂','🧳','🏖️','⛺','🗺️'
+];
 
 function uid(){ return Date.now().toString(36) + Math.random().toString(36).slice(2,8); }
 
@@ -526,18 +568,25 @@ function defaultCategories(){
     ['Refunds','↩️'],['Other Income','💰']
   ];
   const cats = [];
-  exp.forEach((e,i)=> cats.push({id:uid(), name:e[0], icon:e[1], color:PALETTE[i%PALETTE.length], type:'expense', budget:null}));
-  inc.forEach((e,i)=> cats.push({id:uid(), name:e[0], icon:e[1], color:PALETTE[(i+7)%PALETTE.length], type:'income', budget:null}));
+  exp.forEach((e,i)=> cats.push({id:uid(), name:e[0], icon:e[1], color:PALETTE[i%PALETTE.length], type:'expense', budget:null, quickAdd:false}));
+  inc.forEach((e,i)=> cats.push({id:uid(), name:e[0], icon:e[1], color:PALETTE[(i+7)%PALETTE.length], type:'income', budget:null, quickAdd:false}));
   return cats;
 }
 
 let state = loadState();
 function loadState(){
+  let s = null;
   try{
     const raw = localStorage.getItem(STORAGE_KEY);
-    if(raw){ return JSON.parse(raw); }
+    if(raw){ s = JSON.parse(raw); }
   }catch(e){}
-  return { accounts: [], categories: defaultCategories(), transactions: [] };
+  if(!s) s = { accounts: [], categories: defaultCategories(), transactions: [] };
+  if(!s.recurring) s.recurring = [];
+  if(!s.categories) s.categories = defaultCategories();
+  s.categories.forEach(c=>{ if(c.quickAdd===undefined) c.quickAdd = false; });
+  if(!s.transactions) s.transactions = [];
+  if(!s.accounts) s.accounts = [];
+  return s;
 }
 function saveState(){
   localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
@@ -571,6 +620,84 @@ function monthLabel(y,m){
 }
 function catById(id){ return state.categories.find(c=>c.id===id); }
 function accById(id){ return state.accounts.find(a=>a.id===id); }
+function recById(id){ return state.recurring.find(r=>r.id===id); }
+
+/* Shared category <select> options, with an inline "add new" option appended */
+function categorySelectOptionsFor(type, selectedId){
+  return state.categories.filter(c=>c.type===type).map(c=>
+    `<option value="${c.id}" ${selectedId===c.id?'selected':''}>${c.icon} ${escapeHtml(c.name)}</option>`
+  ).join('') + `<option value="__new_cat__">➕ Add new category…</option>`;
+}
+/* Compact inline "create category without leaving this form" widget, reused across forms via idPrefix (e.g. 'Tx', 'Rec') */
+function inlineCatCreatorHtml(idPrefix){
+  return `<div class="inline-cat-creator" id="${idPrefix}InlineCatCreator" style="display:none;">
+    <div class="field"><label>New category name</label><input type="text" id="f${idPrefix}NewCatName" placeholder="e.g. Coffee"></div>
+    <div class="emoji-grid emoji-grid-scroll" id="${idPrefix}NewCatEmojiGrid" style="max-height:112px;">
+      ${CATEGORY_EMOJIS.map(e=>`<button type="button" data-e="${e}" onclick="pickNewCatEmoji('${idPrefix}','${e}')">${e}</button>`).join('')}
+    </div>
+    <div class="field"><label>Color</label><input type="color" id="f${idPrefix}NewCatColor" value="${PALETTE[state.categories.length % PALETTE.length]}"></div>
+    <div class="form-actions">
+      <button type="button" class="btn btn-ghost" onclick="cancelInlineCategory('${idPrefix}')">Cancel</button>
+      <button type="button" class="btn btn-brass" onclick="confirmInlineCategory('${idPrefix}')">Add &amp; Use</button>
+    </div>
+  </div>`;
+}
+const DRAFT_TYPE_GETTERS = {
+  Tx: ()=> window._txDraftType,
+  Rec: ()=> window._recDraft ? window._recDraft.type : 'expense'
+};
+function onCategorySelectChange(idPrefix, sel){
+  if(sel.value==='__new_cat__'){
+    document.getElementById(idPrefix+'InlineCatCreator').style.display = 'block';
+    document.getElementById('f'+idPrefix+'NewCatName').focus();
+  }
+}
+function cancelInlineCategory(idPrefix){
+  document.getElementById(idPrefix+'InlineCatCreator').style.display = 'none';
+  const sel = document.getElementById('f'+idPrefix+'Category');
+  const type = DRAFT_TYPE_GETTERS[idPrefix]()==='income' ? 'income' : 'expense';
+  const first = state.categories.find(c=>c.type===type);
+  if(sel && sel.value==='__new_cat__' && first) sel.value = first.id;
+}
+function pickNewCatEmoji(idPrefix, e){
+  window['_'+idPrefix+'NewCatEmoji'] = e;
+  document.querySelectorAll('#'+idPrefix+'NewCatEmojiGrid button').forEach(b=>b.classList.toggle('active', b.dataset.e===e));
+}
+function confirmInlineCategory(idPrefix){
+  const name = document.getElementById('f'+idPrefix+'NewCatName').value.trim();
+  if(!name){ alert('Give the category a name first.'); return; }
+  const type = DRAFT_TYPE_GETTERS[idPrefix]()==='income' ? 'income' : 'expense';
+  const icon = window['_'+idPrefix+'NewCatEmoji'] || (type==='income' ? '💰' : '🧾');
+  const color = document.getElementById('f'+idPrefix+'NewCatColor').value;
+  const newCat = { id: uid(), name, type, icon, color, budget: null, quickAdd: false };
+  state.categories.push(newCat);
+  saveState();
+  const sel = document.getElementById('f'+idPrefix+'Category');
+  sel.innerHTML = categorySelectOptionsFor(type, newCat.id);
+  document.getElementById(idPrefix+'InlineCatCreator').style.display = 'none';
+  document.getElementById('f'+idPrefix+'NewCatName').value = '';
+  window['_'+idPrefix+'NewCatEmoji'] = null;
+}
+
+function toDateObj(iso){ return new Date(iso+'T00:00:00'); }
+function fromDateObj(d){ return d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0'); }
+function shiftDate(iso, freq){
+  const d = toDateObj(iso);
+  if(freq==='weekly') d.setDate(d.getDate()+7);
+  else if(freq==='monthly') d.setMonth(d.getMonth()+1);
+  return fromDateObj(d);
+}
+function freqLabel(f){ return f==='weekly' ? 'Weekly' : 'Monthly'; }
+
+function isDuplicateTx(payload, excludeId){
+  return state.transactions.some(t=>
+    t.id!==excludeId &&
+    t.type===payload.type &&
+    t.accountId===payload.accountId &&
+    t.date===payload.date &&
+    Math.abs(t.amount-payload.amount) < 0.005
+  );
+}
 
 const ACCOUNT_TYPES = {
   checking: {label:'Checking', icon:'🏦'},
@@ -580,10 +707,11 @@ const ACCOUNT_TYPES = {
   investment: {label:'Investment', icon:'📈'}
 };
 
-function accountBalance(acc){
+function accountBalance(acc, asOfDate){
   let bal = acc.startingBalance || 0;
   state.transactions.forEach(t=>{
     if(t.excludeFromBalance) return;
+    if(asOfDate && t.date > asOfDate) return;
     if(t.type==='income' && t.accountId===acc.id) bal += t.amount;
     else if(t.type==='expense' && t.accountId===acc.id) bal -= t.amount;
     else if(t.type==='transfer'){
@@ -595,6 +723,44 @@ function accountBalance(acc){
 }
 function netWorth(){
   return state.accounts.reduce((s,a)=> s + accountBalance(a), 0);
+}
+function netWorthAsOf(dateStr){
+  return state.accounts.reduce((s,a)=> s + accountBalance(a, dateStr), 0);
+}
+function netWorthSeries(days){
+  const series = [];
+  const now = new Date();
+  for(let i=days-1; i>=0; i--){
+    const d = new Date(now);
+    d.setDate(d.getDate()-i);
+    const dateStr = fromDateObj(d);
+    series.push({ date: dateStr, value: netWorthAsOf(dateStr) });
+  }
+  return series;
+}
+
+/* ============================================================
+   RECURRING TRANSACTIONS
+============================================================ */
+function generateDueRecurring(){
+  const today = todayISO();
+  let changed = false;
+  state.recurring.forEach(r=>{
+    if(!r.active) return;
+    let guard = 0;
+    while(r.nextDate <= today && guard < 500){
+      state.transactions.push({
+        id: uid(), createdAt: Date.now(),
+        type: r.type, amount: r.amount, accountId: r.accountId,
+        categoryId: r.categoryId || null, toAccountId: r.toAccountId || null,
+        date: r.nextDate, note: r.note || '', excludeFromBalance: false, recurringId: r.id
+      });
+      r.nextDate = shiftDate(r.nextDate, r.frequency);
+      changed = true;
+      guard++;
+    }
+  });
+  if(changed) saveState();
 }
 
 /* ============================================================
@@ -655,6 +821,32 @@ function ringSVG(pct, size=64, thickness=8, color='#C9A24B'){
       stroke-dasharray="${dash} ${c-dash}" stroke-linecap="round" transform="rotate(-90 ${size/2} ${size/2})"/>
   </svg>`;
 }
+function trendSVG(points, color='#C9A24B', width=300, height=100){
+  const values = points.map(p=>p.value);
+  const min = Math.min(...values), max = Math.max(...values);
+  const range = (max-min) || 1;
+  const padY = 10;
+  const n = points.length;
+  const stepX = n>1 ? width/(n-1) : width;
+  const coords = values.map((v,i)=>{
+    const x = i*stepX;
+    const y = height - padY - ((v-min)/range)*(height-2*padY);
+    return [x, y];
+  });
+  const linePath = coords.map((c,i)=> (i===0?'M':'L')+c[0].toFixed(1)+','+c[1].toFixed(1)).join(' ');
+  const areaPath = linePath + ` L ${width},${height} L 0,${height} Z`;
+  const last = coords[coords.length-1];
+  const gid = 'trendGrad' + Math.round(Math.random()*100000);
+  return `<svg viewBox="0 0 ${width} ${height}" width="100%" height="${height}" preserveAspectRatio="none" style="display:block; overflow:visible;">
+    <defs><linearGradient id="${gid}" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0%" stop-color="${color}" stop-opacity="0.32"/>
+      <stop offset="100%" stop-color="${color}" stop-opacity="0"/>
+    </linearGradient></defs>
+    <path d="${areaPath}" fill="url(#${gid})" stroke="none"/>
+    <path d="${linePath}" fill="none" stroke="${color}" stroke-width="2.5" stroke-linejoin="round" stroke-linecap="round" vector-effect="non-scaling-stroke"/>
+    <circle cx="${last[0]}" cy="${last[1]}" r="4" fill="${color}"/>
+  </svg>`;
+}
 
 /* ============================================================
    HOME VIEW
@@ -662,12 +854,22 @@ function ringSVG(pct, size=64, thickness=8, color='#C9A24B'){
 function renderHome(){
   const now = new Date();
   const y = now.getFullYear(), m = now.getMonth();
-  document.getElementById('homeMonthLabel').textContent = monthLabel(y,m);
   document.getElementById('topbarSub').textContent = now.toLocaleDateString('en-US',{weekday:'short', month:'short', day:'numeric'});
 
   const nw = netWorth();
   document.getElementById('netWorthDisplay').innerHTML = (nw<0?'−':'') + Math.floor(Math.abs(nw)).toLocaleString('nb-NO') + '<span class="cents">,'+String(Math.round((Math.abs(nw)%1)*100)).padStart(2,'0')+' kr</span>';
   document.getElementById('netWorthCaption').textContent = state.accounts.length ? `Across ${state.accounts.length} account${state.accounts.length>1?'s':''}` : 'Add an account to get started';
+
+  const quickCats = state.categories.filter(c=>c.quickAdd);
+  const quickSec = document.getElementById('quickAddSection');
+  if(quickCats.length && state.accounts.length){
+    quickSec.innerHTML = `<div class="section-title" style="margin-bottom:8px;">Quick add</div>
+      <div class="quick-add-row">
+        ${quickCats.map(c=>`<div class="quick-add-chip" onclick="openQuickAdd('${c.id}')"><span class="qi">${c.icon}</span><span class="qn">${escapeHtml(c.name)}</span></div>`).join('')}
+      </div>`;
+  } else {
+    quickSec.innerHTML = '';
+  }
 
   const monthTx = state.transactions.filter(t=>{
     const d = new Date(t.date+'T00:00:00');
@@ -676,35 +878,11 @@ function renderHome(){
   const inc = monthTx.filter(t=>t.type==='income').reduce((s,t)=>s+t.amount,0);
   const exp = monthTx.filter(t=>t.type==='expense').reduce((s,t)=>s+t.amount,0);
   document.getElementById('homeIncome').textContent = fmt(inc);
-  document.getElementById('homeExpense').textContent = fmt(exp);
   const netEl = document.getElementById('homeNet');
   netEl.textContent = (inc-exp<0?'−':'') + fmt(inc-exp);
   netEl.className = 'value ' + (inc-exp>=0?'pos':'neg');
 
-  // donut of expense by category, this month
-  const byCat = {};
-  monthTx.filter(t=>t.type==='expense').forEach(t=>{
-    byCat[t.categoryId] = (byCat[t.categoryId]||0) + t.amount;
-  });
-  const data = Object.entries(byCat).map(([id,val])=>{
-    const c = catById(id);
-    return {label: c?c.name:'Other', value: val, color: c?c.color:'#666', icon: c?c.icon:'🧾'};
-  }).sort((a,b)=>b.value-a.value);
-
-  const donutCard = document.getElementById('homeDonutCard');
-  if(data.length===0){
-    donutCard.innerHTML = `<div class="empty"><div class="glyph">🧾</div><div class="msg">No spending logged yet this month.<br>Tap the + button to add a transaction.</div></div>`;
-  } else {
-    const total = data.reduce((s,d)=>s+d.value,0);
-    let legend = data.slice(0,6).map(d=>`
-      <div class="legend-row">
-        <span class="legend-dot" style="background:${d.color}"></span>
-        <span class="lname">${d.icon} ${escapeHtml(d.label)}</span>
-        <span class="lval">${fmt(d.value)}</span>
-        <span class="lpct">${Math.round(d.value/total*100)}%</span>
-      </div>`).join('');
-    donutCard.innerHTML = `<div class="donut-wrap">${donutSVG(data)}<div class="legend">${legend}</div></div>`;
-  }
+  renderTrendCard();
 
   // savings goals
   const goalAccs = state.accounts.filter(a=>a.type==='savings' && a.goal && a.goal.target>0);
@@ -731,6 +909,28 @@ function renderHome(){
   const recent = [...state.transactions].sort((a,b)=> b.date.localeCompare(a.date) || b.createdAt-a.createdAt).slice(0,6);
   document.getElementById('homeRecentList').innerHTML = recent.length ? recent.map(txRowHtml).join('') :
     `<div class="empty"><div class="glyph">📖</div><div class="msg">Your ledger is empty.<br>Add your first transaction.</div></div>`;
+}
+
+function renderTrendCard(){
+  const card = document.getElementById('trendCard');
+  if(state.accounts.length===0){
+    card.innerHTML = `<div class="empty" style="padding:18px 10px;"><div class="msg">Add an account to start tracking your net worth over time.</div></div>`;
+    return;
+  }
+  const days = 30;
+  const series = netWorthSeries(days);
+  const first = series[0].value;
+  const last = series[series.length-1].value;
+  const change = last - first;
+  const color = change >= 0 ? '#6FA287' : '#C1583B';
+  const changeTxt = (change>=0?'+':'−') + fmt(Math.abs(change));
+  card.innerHTML = `
+    <div style="display:flex; justify-content:space-between; align-items:baseline; margin-bottom:10px;">
+      <span style="font-size:11px; color:var(--text-faint); text-transform:uppercase; letter-spacing:0.06em; font-weight:600;">Last ${days} days</span>
+      <span style="font-family:var(--mono); font-size:12.5px; color:${color}; font-weight:600;">${changeTxt}</span>
+    </div>
+    ${trendSVG(series, color)}
+  `;
 }
 
 function txRowHtml(t){
@@ -929,7 +1129,6 @@ function openTxForm(existing, presetAccountId, presetDate){
 }
 function renderTxFormSheet(t, isEdit){
   const accOptions = state.accounts.map(a=>`<option value="${a.id}" ${t.accountId===a.id?'selected':''}>${a.icon} ${escapeHtml(a.name)}</option>`).join('');
-  const catOptionsFor = (type)=> state.categories.filter(c=>c.type===type).map(c=>`<option value="${c.id}" ${t.categoryId===c.id?'selected':''}>${c.icon} ${escapeHtml(c.name)}</option>`).join('');
   const toAccOptions = state.accounts.map(a=>`<option value="${a.id}" ${t.toAccountId===a.id?'selected':''}>${a.icon} ${escapeHtml(a.name)}</option>`).join('');
 
   openSheet(isEdit?'Edit Transaction':'New Transaction', `
@@ -946,8 +1145,9 @@ function renderTxFormSheet(t, isEdit){
     <div class="field"><label>Account</label><select id="fTxAccount">${accOptions}</select></div>
     <div class="field" id="txCatField" style="display:${t.type==='transfer'?'none':'block'}">
       <label>Category</label>
-      <select id="fTxCategory">${catOptionsFor(t.type==='income'?'income':'expense')}</select>
+      <select id="fTxCategory" onchange="onCategorySelectChange('Tx', this)">${categorySelectOptionsFor(t.type==='income'?'income':'expense', t.categoryId)}</select>
     </div>
+    ${inlineCatCreatorHtml('Tx')}
     <div class="field" id="txToAccField" style="display:${t.type==='transfer'?'block':'none'}">
       <label>Transfer to</label>
       <select id="fTxToAccount">${toAccOptions}</select>
@@ -974,15 +1174,20 @@ function setTxType(type){
   document.getElementById('txSign').style.color = type==='income'?'var(--moss)':type==='expense'?'var(--rust)':'var(--text)';
   document.getElementById('txCatField').style.display = type==='transfer'?'none':'block';
   document.getElementById('txToAccField').style.display = type==='transfer'?'block':'none';
+  document.getElementById('TxInlineCatCreator').style.display = 'none';
   if(type!=='transfer'){
-    const sel = document.getElementById('fTxCategory');
-    sel.innerHTML = state.categories.filter(c=>c.type===(type==='income'?'income':'expense')).map(c=>`<option value="${c.id}">${c.icon} ${escapeHtml(c.name)}</option>`).join('');
+    document.getElementById('fTxCategory').innerHTML = categorySelectOptionsFor(type==='income'?'income':'expense', null);
   }
 }
 function saveTx(id){
   const type = window._txDraftType;
   const amount = parseNum(document.getElementById('fTxAmt').value);
   if(!amount || isNaN(amount) || amount<=0){ alert('Please enter an amount.'); return; }
+  if(type!=='transfer' && document.getElementById('fTxCategory').value==='__new_cat__'){
+    const nameField = document.getElementById('fTxNewCatName');
+    if(nameField && nameField.value.trim()){ confirmInlineCategory('Tx'); }
+    else { alert('Pick a category, or finish naming the new one.'); return; }
+  }
   const accountId = document.getElementById('fTxAccount').value;
   const date = document.getElementById('fTxDate').value || todayISO();
   const note = document.getElementById('fTxNote').value.trim();
@@ -996,6 +1201,10 @@ function saveTx(id){
   } else {
     payload.categoryId = document.getElementById('fTxCategory').value;
     payload.toAccountId = null;
+  }
+  if(isDuplicateTx(payload, id)){
+    const proceed = confirm(`This looks like a duplicate — you already have a ${fmt(amount)} ${type} on this account for ${date}. Add it anyway?`);
+    if(!proceed) return;
   }
   if(id){
     const t = state.transactions.find(x=>x.id===id);
@@ -1014,6 +1223,47 @@ function deleteTx(id){
 function openTxDetail(id){
   const t = state.transactions.find(x=>x.id===id);
   if(t) renderTxFormSheet(t, true);
+}
+
+/* ============================================================
+   QUICK ADD (from Home shortcuts)
+============================================================ */
+let lastQuickAccountId = null;
+function openQuickAdd(catId){
+  const c = catById(catId);
+  if(!c) return;
+  const defaultAcc = lastQuickAccountId && accById(lastQuickAccountId) ? lastQuickAccountId : (state.accounts[0] && state.accounts[0].id);
+  const accOptions = state.accounts.map(a=>`<option value="${a.id}" ${defaultAcc===a.id?'selected':''}>${a.icon} ${escapeHtml(a.name)}</option>`).join('');
+  const sign = c.type==='income' ? '+' : '−';
+  const color = c.type==='income' ? 'var(--moss)' : 'var(--rust)';
+  openSheet(`${c.icon} ${c.name}`, `
+    <div class="amount-field">
+      <span class="sign" style="color:${color}">${sign}</span>
+      <input type="text" id="fQAmt" placeholder="0,00" inputmode="decimal" autofocus>
+      <span style="font-family:var(--mono); font-size:20px; color:var(--text-faint);">kr</span>
+    </div>
+    <div class="field"><label>Account</label><select id="fQAccount">${accOptions}</select></div>
+    <div class="field"><label>Date</label><input type="date" id="fQDate" value="${todayISO()}"></div>
+    <div class="form-actions">
+      <button class="btn btn-brass btn-block" onclick="saveQuickTx('${catId}')">Add ${escapeHtml(c.name)}</button>
+    </div>
+  `);
+}
+function saveQuickTx(catId){
+  const c = catById(catId);
+  const amount = parseNum(document.getElementById('fQAmt').value);
+  if(!amount || isNaN(amount) || amount<=0){ alert('Please enter an amount.'); return; }
+  const accountId = document.getElementById('fQAccount').value;
+  const date = document.getElementById('fQDate').value || todayISO();
+  lastQuickAccountId = accountId;
+  const payload = { type: c.type, amount, accountId, date, note:'', categoryId: c.id, toAccountId:null, excludeFromBalance:false };
+  if(isDuplicateTx(payload, null)){
+    const proceed = confirm(`This looks like a duplicate — you already have a ${fmt(amount)} ${c.type} on this account for ${date}. Add it anyway?`);
+    if(!proceed) return;
+  }
+  payload.id = uid(); payload.createdAt = Date.now();
+  state.transactions.push(payload);
+  saveState(); closeSheet(); renderAll();
 }
 
 /* ============================================================
@@ -1086,6 +1336,7 @@ function openDayDetail(dateStr){
    REPORTS VIEW
 ============================================================ */
 let repY, repM, repType='expense';
+let reportsLegendExpanded = false;
 (function initRep(){ const n=new Date(); repY=n.getFullYear(); repM=n.getMonth(); })();
 function repShift(d){
   repM += d;
@@ -1095,6 +1346,17 @@ function repShift(d){
 function setRepType(t){
   repType = t;
   document.querySelectorAll('#repSegment button').forEach(b=>b.classList.toggle('active', b.dataset.t===t));
+  renderReports();
+}
+function updateCatColor(catId, color){
+  const c = catById(catId);
+  if(!c) return;
+  c.color = color;
+  saveState();
+  renderReports();
+}
+function toggleReportsExpand(){
+  reportsLegendExpanded = !reportsLegendExpanded;
   renderReports();
 }
 function renderReports(){
@@ -1115,48 +1377,33 @@ function renderReports(){
     donutCard.innerHTML = `<div class="empty"><div class="glyph">📊</div><div class="msg">No ${repType} recorded for this month.</div></div>`;
   } else {
     const total = data.reduce((s,d)=>s+d.value,0);
-    const maxVal = data[0].value;
-
-    // previous month totals per category, for trend comparison
-    let prevY = repY, prevM = repM-1;
-    if(prevM<0){ prevM=11; prevY--; }
-    const prevByCat = {};
-    state.transactions.forEach(t=>{
-      if(t.type!==repType) return;
-      const d = new Date(t.date+'T00:00:00');
-      if(d.getFullYear()===prevY && d.getMonth()===prevM) prevByCat[t.categoryId] = (prevByCat[t.categoryId]||0) + t.amount;
-    });
-
-    const rows = data.map((d,i)=>{
-      const prevVal = d.id ? (prevByCat[d.id]||0) : 0;
-      let deltaHtml = '';
-      if(prevVal>0){
-        const pctChange = Math.round((d.value-prevVal)/prevVal*100);
-        const dir = pctChange>2 ? 'up' : (pctChange<-2 ? 'down' : 'flat');
-        const cls = dir + (repType==='income' ? ' income' : '');
-        const arrow = dir==='up' ? '↑' : (dir==='down' ? '↓' : '·');
-        deltaHtml = `<div class="br-delta ${cls}">${arrow} ${pctChange>0?'+':''}${pctChange}% vs last month</div>`;
-      } else if(d.value>0){
-        deltaHtml = `<div class="br-delta flat">New this month</div>`;
-      }
-      return `<div class="bar-row">
-        <div class="br-top">
-          <span class="br-rank">${i+1}</span>
-          <span class="br-icon">${d.icon}</span>
-          <span class="br-name">${escapeHtml(d.label)}</span>
-          <span class="br-amt">${fmt(d.value)}</span>
-        </div>
-        <div class="bar-track"><div class="bar-fill" style="width:${Math.max(4,d.value/maxVal*100)}%; background:${d.color}"></div></div>
-        ${deltaHtml}
+    const shown = reportsLegendExpanded ? data : data.slice(0,6);
+    const legendRows = shown.map(d=>{
+      const isRealCat = d.id && catById(d.id);
+      const dot = isRealCat
+        ? `<input type="color" class="legend-dot-picker" value="${d.color}" onchange="updateCatColor('${d.id}', this.value)" title="Change color">`
+        : `<span class="legend-dot" style="background:${d.color}"></span>`;
+      return `<div class="legend-row">
+        ${dot}
+        <span class="lname">${d.icon} ${escapeHtml(d.label)}</span>
+        <span class="lval">${fmt(d.value)}</span>
+        <span class="lpct">${Math.round(d.value/total*100)}%</span>
       </div>`;
     }).join('');
+    const toggleHtml = data.length>6
+      ? `<div class="legend-toggle" onclick="toggleReportsExpand()">${reportsLegendExpanded ? 'Show less' : `Show all ${data.length} categories`}</div>`
+      : '';
 
     donutCard.innerHTML = `
+      <div class="donut-wrap">${donutSVG(data)}<div class="legend">
+        ${legendRows}
+        ${toggleHtml}
+      </div></div>
+      <div class="divider"></div>
       <div class="bar-list-total">
         <span class="lbl">Total ${repType}</span>
         <span class="val">${fmt(total)}</span>
-      </div>
-      ${rows}`;
+      </div>`;
   }
 
   // budgets (expense categories with a budget set)
@@ -1180,6 +1427,47 @@ function renderReports(){
   }
 
   renderCategoryManagementList();
+  renderFlowChart();
+}
+function monthlyFlowSeries(endY, endM, months){
+  const arr = [];
+  for(let i=months-1; i>=0; i--){
+    let y=endY, m=endM-i;
+    while(m<0){ m+=12; y--; }
+    const inc = state.transactions.filter(t=>{
+      if(t.type!=='income') return false;
+      const d = new Date(t.date+'T00:00:00');
+      return d.getFullYear()===y && d.getMonth()===m;
+    }).reduce((s,t)=>s+t.amount,0);
+    const exp = state.transactions.filter(t=>{
+      if(t.type!=='expense') return false;
+      const d = new Date(t.date+'T00:00:00');
+      return d.getFullYear()===y && d.getMonth()===m;
+    }).reduce((s,t)=>s+t.amount,0);
+    arr.push({ y, m, label: new Date(y,m,1).toLocaleDateString('en-US',{month:'short'}), income: inc, expense: exp });
+  }
+  return arr;
+}
+function renderFlowChart(){
+  const card = document.getElementById('flowChartCard');
+  if(!card) return;
+  const series = monthlyFlowSeries(repY, repM, 6);
+  const maxVal = Math.max(1, ...series.map(s=>Math.max(s.income, s.expense)));
+  const cols = series.map(s=>`
+    <div class="flow-col">
+      <div class="flow-bars">
+        <div class="flow-bar inc" style="height:${Math.max(2, s.income/maxVal*88)}px" title="Income ${fmt(s.income)}"></div>
+        <div class="flow-bar exp" style="height:${Math.max(2, s.expense/maxVal*88)}px" title="Expense ${fmt(s.expense)}"></div>
+      </div>
+      <div class="fm-label">${s.label}</div>
+    </div>`).join('');
+  card.innerHTML = `
+    <div class="flow-legend">
+      <span><span class="dot" style="background:var(--moss)"></span>Income</span>
+      <span><span class="dot" style="background:var(--rust)"></span>Expense</span>
+    </div>
+    <div class="flow-chart">${cols}</div>
+  `;
 }
 function renderCategoryManagementList(){
   const wrap = document.getElementById('repCategoryList');
@@ -1197,7 +1485,6 @@ function renderCategoryManagementList(){
 function openCategoryForm(existing){
   const isEdit = !!existing;
   const c = existing || {type:'expense', color: PALETTE[state.categories.length % PALETTE.length], icon:'🧾'};
-  const emojiSet = ['🛒','🍔','🚗','🏠','💡','🎬','🛍️','💊','🛡️','🔁','✈️','📚','💆','🎁','🧾','💼','💻','📈','🎉','↩️','💰','🐾','🎓','🧸','⚽','🎵','🔧','☕','🍿','📱'];
   openSheet(isEdit?'Edit Category':'New Category', `
     <div class="field"><label>Name</label><input type="text" id="fCatName" placeholder="e.g. Coffee" value="${escapeHtml(c.name||'')}"></div>
     <div class="segment" id="catTypeSeg">
@@ -1205,14 +1492,18 @@ function openCategoryForm(existing){
       <button class="${c.type==='income'?'active':''}" data-v="income" onclick="setCatType('income')">Income</button>
     </div>
     <div class="field" style="margin-top:16px;"><label>Icon</label>
-      <div class="emoji-grid" id="catEmojiGrid">
-        ${emojiSet.map(e=>`<button type="button" class="${c.icon===e?'active':''}" data-e="${e}" onclick="pickEmoji('${e}')">${e}</button>`).join('')}
+      <div class="emoji-grid emoji-grid-scroll" id="catEmojiGrid">
+        ${CATEGORY_EMOJIS.map(e=>`<button type="button" class="${c.icon===e?'active':''}" data-e="${e}" onclick="pickEmoji('${e}')">${e}</button>`).join('')}
       </div>
     </div>
     <div class="field"><label>Color</label><input type="color" id="fCatColor" value="${c.color}"></div>
     <div class="field" id="catBudgetField" style="display:${c.type==='expense'?'block':'none'}">
       <label>Monthly budget (optional)</label><input type="text" inputmode="decimal" id="fCatBudget" placeholder="0,00" value="${c.budget?String(c.budget).replace('.',','):''}">
     </div>
+    <label class="checkbox-row">
+      <input type="checkbox" id="fCatQuick" ${c.quickAdd?'checked':''}>
+      <span>Show as a one-tap quick-add shortcut on Home</span>
+    </label>
     <div class="form-actions">
       ${isEdit? `<button class="btn btn-danger" onclick="deleteCategory('${c.id}')">Delete</button>` : ''}
       <button class="btn btn-brass" onclick="saveCategory(${isEdit?`'${c.id}'`:'null'})">${isEdit?'Save Changes':'Add Category'}</button>
@@ -1236,11 +1527,12 @@ function saveCategory(id){
   const icon = window._catDraft.icon || '🧾';
   const color = document.getElementById('fCatColor').value;
   const budgetVal = type==='expense' ? (parseNum(document.getElementById('fCatBudget').value)||null) : null;
+  const quickAdd = document.getElementById('fCatQuick').checked;
   if(id){
     const c = catById(id);
-    Object.assign(c, {name, type, icon, color, budget: budgetVal});
+    Object.assign(c, {name, type, icon, color, budget: budgetVal, quickAdd});
   } else {
-    state.categories.push({id: uid(), name, type, icon, color, budget: budgetVal});
+    state.categories.push({id: uid(), name, type, icon, color, budget: budgetVal, quickAdd});
   }
   saveState(); closeSheet(); renderAll();
 }
@@ -1249,6 +1541,142 @@ function deleteCategory(id){
   if(inUse && !confirm('This category is used by existing transactions, which will become Uncategorized. Delete anyway?')) return;
   if(!inUse && !confirm('Delete this category?')) return;
   state.categories = state.categories.filter(c=>c.id!==id);
+  saveState(); closeSheet(); renderAll();
+}
+
+/* ============================================================
+   RECURRING TRANSACTIONS UI
+============================================================ */
+function openRecurringList(){
+  openSheet('Recurring', `
+    <button class="btn btn-brass btn-block" style="margin-bottom:14px;" onclick="openRecurringForm()">+ New Recurring</button>
+    <div id="recurringListWrap"></div>
+  `);
+  renderRecurringList();
+}
+function renderRecurringList(){
+  const wrap = document.getElementById('recurringListWrap');
+  if(!wrap) return;
+  if(state.recurring.length===0){
+    wrap.innerHTML = `<div class="empty"><div class="glyph">🔁</div><div class="msg">No recurring transactions yet.<br>Set up rent, subscriptions, or your paycheck once and it'll log itself on schedule.</div></div>`;
+    return;
+  }
+  const sorted = [...state.recurring].sort((a,b)=>a.nextDate.localeCompare(b.nextDate));
+  wrap.innerHTML = sorted.map(r=>{
+    const acc = accById(r.accountId);
+    const c = r.type==='transfer' ? null : catById(r.categoryId);
+    const toAcc = r.type==='transfer' ? accById(r.toAccountId) : null;
+    const icon = r.type==='transfer' ? '↔️' : (c?c.icon:'🧾');
+    const name = r.type==='transfer' ? `Transfer to ${toAcc?toAcc.name:'—'}` : (r.note || (c?c.name:'Recurring'));
+    const amtClass = r.type==='income' ? 'pos' : (r.type==='expense' ? 'neg' : 'neutral');
+    const sign = r.type==='income' ? '+' : (r.type==='expense' ? '−' : '');
+    return `<div class="row" onclick="openRecurringForm(recById('${r.id}'))" style="opacity:${r.active?1:0.5}">
+      <div class="icon-badge" style="background:${c?c.color+'33':'#3a4150'}">${icon}</div>
+      <div class="meta">
+        <div class="title">${escapeHtml(name)}${r.active?'':' (paused)'}</div>
+        <div class="sub">${freqLabel(r.frequency)} · next ${new Date(r.nextDate+'T00:00:00').toLocaleDateString('en-US',{month:'short',day:'numeric'})} · ${acc?acc.name:'—'}</div>
+      </div>
+      <div class="amt value ${amtClass}">${sign}${fmt(r.amount)}</div>
+    </div>`;
+  }).join('');
+}
+function openRecurringForm(existing){
+  const isEdit = !!existing;
+  const r = existing || { type:'expense', frequency:'monthly', startDate: todayISO(), active:true, accountId: state.accounts[0]&&state.accounts[0].id };
+  if(state.accounts.length===0){ closeSheet(); alert('Add an account first.'); openAccountForm(); return; }
+  window._recDraft = { type: r.type, frequency: r.frequency };
+  const accOptions = state.accounts.map(a=>`<option value="${a.id}" ${r.accountId===a.id?'selected':''}>${a.icon} ${escapeHtml(a.name)}</option>`).join('');
+  const toAccOptions = state.accounts.map(a=>`<option value="${a.id}" ${r.toAccountId===a.id?'selected':''}>${a.icon} ${escapeHtml(a.name)}</option>`).join('');
+
+  openSheet(isEdit?'Edit Recurring':'New Recurring', `
+    <div class="segment" id="recTypeSeg">
+      <button class="${r.type==='expense'?'active':''}" data-v="expense" onclick="setRecType('expense')">Expense</button>
+      <button class="${r.type==='income'?'active':''}" data-v="income" onclick="setRecType('income')">Income</button>
+      <button class="${r.type==='transfer'?'active':''}" data-v="transfer" onclick="setRecType('transfer')">Transfer</button>
+    </div>
+    <div class="amount-field">
+      <span class="sign" id="recSign" style="color:${r.type==='income'?'var(--moss)':r.type==='expense'?'var(--rust)':'var(--text)'}">${r.type==='income'?'+':r.type==='expense'?'−':'↔'}</span>
+      <input type="text" id="fRecAmt" placeholder="0,00" value="${r.amount!=null?String(r.amount).replace('.',','):''}" inputmode="decimal">
+      <span style="font-family:var(--mono); font-size:20px; color:var(--text-faint);">kr</span>
+    </div>
+    <div class="field"><label>Account</label><select id="fRecAccount">${accOptions}</select></div>
+    <div class="field" id="recCatField" style="display:${r.type==='transfer'?'none':'block'}">
+      <label>Category</label><select id="fRecCategory" onchange="onCategorySelectChange('Rec', this)">${categorySelectOptionsFor(r.type==='income'?'income':'expense', r.categoryId)}</select>
+    </div>
+    ${inlineCatCreatorHtml('Rec')}
+    <div class="field" id="recToAccField" style="display:${r.type==='transfer'?'block':'none'}">
+      <label>Transfer to</label><select id="fRecToAccount">${toAccOptions}</select>
+    </div>
+    <div class="field"><label>Repeats</label>
+      <div class="segment" id="recFreqSeg">
+        <button class="${r.frequency==='weekly'?'active':''}" data-v="weekly" onclick="setRecFreq('weekly')">Weekly</button>
+        <button class="${r.frequency!=='weekly'?'active':''}" data-v="monthly" onclick="setRecFreq('monthly')">Monthly</button>
+      </div>
+    </div>
+    <div class="field"><label>${isEdit?'Next occurrence':'Starts on'}</label><input type="date" id="fRecDate" value="${isEdit?r.nextDate:r.startDate}"></div>
+    <div class="field"><label>Note (optional)</label><input type="text" id="fRecNote" placeholder="e.g. Rent, Netflix, Paycheck" value="${escapeHtml(r.note||'')}"></div>
+    ${isEdit? `<label class="checkbox-row"><input type="checkbox" id="fRecActive" ${r.active?'checked':''}><span>Active — keep auto-logging this</span></label>` : ''}
+    <div class="form-actions">
+      ${isEdit? `<button class="btn btn-danger" onclick="deleteRecurring('${r.id}')">Delete</button>` : ''}
+      <button class="btn btn-brass" onclick="saveRecurring(${isEdit?`'${r.id}'`:'null'})">${isEdit?'Save Changes':'Create Recurring'}</button>
+    </div>
+  `);
+}
+function setRecType(type){
+  window._recDraft.type = type;
+  document.querySelectorAll('#recTypeSeg button').forEach(b=>b.classList.toggle('active', b.dataset.v===type));
+  document.getElementById('recSign').textContent = type==='income'?'+':type==='expense'?'−':'↔';
+  document.getElementById('recSign').style.color = type==='income'?'var(--moss)':type==='expense'?'var(--rust)':'var(--text)';
+  document.getElementById('recCatField').style.display = type==='transfer'?'none':'block';
+  document.getElementById('recToAccField').style.display = type==='transfer'?'block':'none';
+  document.getElementById('RecInlineCatCreator').style.display = 'none';
+  if(type!=='transfer'){
+    document.getElementById('fRecCategory').innerHTML = categorySelectOptionsFor(type==='income'?'income':'expense', null);
+  }
+}
+function setRecFreq(f){
+  window._recDraft.frequency = f;
+  document.querySelectorAll('#recFreqSeg button').forEach(b=>b.classList.toggle('active', b.dataset.v===f));
+}
+function saveRecurring(id){
+  const type = window._recDraft.type;
+  const frequency = window._recDraft.frequency;
+  const amount = parseNum(document.getElementById('fRecAmt').value);
+  if(!amount || isNaN(amount) || amount<=0){ alert('Please enter an amount.'); return; }
+  if(type!=='transfer' && document.getElementById('fRecCategory').value==='__new_cat__'){
+    const nameField = document.getElementById('fRecNewCatName');
+    if(nameField && nameField.value.trim()){ confirmInlineCategory('Rec'); }
+    else { alert('Pick a category, or finish naming the new one.'); return; }
+  }
+  const accountId = document.getElementById('fRecAccount').value;
+  const dateVal = document.getElementById('fRecDate').value || todayISO();
+  const note = document.getElementById('fRecNote').value.trim();
+  let payload = { type, frequency, amount, accountId, note };
+  if(type==='transfer'){
+    const toAccountId = document.getElementById('fRecToAccount').value;
+    if(toAccountId===accountId){ alert('Choose two different accounts for a transfer.'); return; }
+    payload.toAccountId = toAccountId; payload.categoryId = null;
+  } else {
+    payload.categoryId = document.getElementById('fRecCategory').value; payload.toAccountId = null;
+  }
+  if(id){
+    const r = recById(id);
+    payload.active = document.getElementById('fRecActive').checked;
+    payload.nextDate = dateVal;
+    Object.assign(r, payload);
+  } else {
+    payload.active = true;
+    payload.startDate = dateVal;
+    payload.nextDate = dateVal;
+    payload.id = uid(); payload.createdAt = Date.now();
+    state.recurring.push(payload);
+  }
+  generateDueRecurring();
+  saveState(); closeSheet(); renderAll();
+}
+function deleteRecurring(id){
+  if(!confirm('Delete this recurring rule? Past transactions it already created will stay in your history.')) return;
+  state.recurring = state.recurring.filter(r=>r.id!==id);
   saveState(); closeSheet(); renderAll();
 }
 
@@ -1262,12 +1690,37 @@ function renderAll(){
   else if(activeTab==='calendar') renderCalendar();
   else if(activeTab==='reports') renderReports();
 }
+generateDueRecurring();
 renderAll();
 
 /* iOS: prevent rubber-band scroll on body while allowing inner scroll */
 document.addEventListener('touchmove', function(e){
   if(!e.target.closest('.view.active') && !e.target.closest('.sheet-body')) e.preventDefault();
 }, {passive:false});
+
+/* Swipe left/right between tabs */
+const TAB_ORDER = ['home','accounts','transactions','calendar','reports'];
+let swipeStartX = 0, swipeStartY = 0, swipeStartTime = 0, swipeTarget = null;
+document.addEventListener('touchstart', function(e){
+  if(document.getElementById('overlay').classList.contains('show')) { swipeTarget = null; return; }
+  const t = e.touches[0];
+  swipeStartX = t.clientX; swipeStartY = t.clientY; swipeStartTime = Date.now();
+  swipeTarget = e.target;
+}, {passive:true});
+document.addEventListener('touchend', function(e){
+  if(!swipeTarget) return;
+  if(swipeTarget.closest && swipeTarget.closest('.quick-add-row, input, textarea, select, button, .sheet-body')){ swipeTarget = null; return; }
+  const t = e.changedTouches[0];
+  const dx = t.clientX - swipeStartX;
+  const dy = t.clientY - swipeStartY;
+  const dt = Date.now() - swipeStartTime;
+  swipeTarget = null;
+  if(Math.abs(dx) > 70 && Math.abs(dx) > Math.abs(dy)*1.8 && dt < 600){
+    const idx = TAB_ORDER.indexOf(activeTab);
+    if(dx < 0 && idx < TAB_ORDER.length-1) goTab(TAB_ORDER[idx+1]);
+    else if(dx > 0 && idx > 0) goTab(TAB_ORDER[idx-1]);
+  }
+}, {passive:true});
 </script>
 </body>
 </html>
